@@ -37,7 +37,7 @@ func fetchFilteredCoins() ([]string, error) {
 
 	var symbols []string
 	var nodes []*cdp.Node
-
+	// 打开页面，设置 cookie
 	err := chromedp.Run(ctx,
 		network.Enable(),
 		network.SetCookie("obe", "s_ce4eb2cfebfd4e24803c5078e4509ae9").
@@ -45,7 +45,6 @@ func fetchFilteredCoins() ([]string, error) {
 		network.SetCookie("api_grade", "1").
 			WithDomain("www.coinglass.com").WithPath("/"),
 
-		// 打开页面
 		chromedp.Navigate(coinglassURL),
 		chromedp.WaitVisible(`body`, chromedp.ByQuery),
 
@@ -64,71 +63,55 @@ func fetchFilteredCoins() ([]string, error) {
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	// 确保第二个按钮存在
 	if len(nodes) < 2 {
 		log.Fatal("没有找到第二个“24小时成交额”按钮")
 	}
 
+	// 修改“24小时成交额”输入框
 	err = chromedp.Run(ctx,
 		chromedp.WaitVisible(nodes[1].FullXPath()),
 		chromedp.Click(nodes[1].FullXPath()),
+		chromedp.Sleep(500*time.Millisecond),
 
-		chromedp.Sleep(1*time.Second),
 		chromedp.Evaluate(`
-		(() => {
-			const inputs = document.evaluate(
-				"//div[.//div[text()='24小时成交额']]//input[@placeholder='$0']",
-				document,
-				null,
-				XPathResult.ORDERED_NODE_SNAPSHOT_TYPE,
-				null
-			);
-			if (inputs.snapshotLength >= 13) {
-				const input = inputs.snapshotItem(12);
-				input.value = "50000000";
-				input.dispatchEvent(new Event('input', { bubbles: true }));
-			}
-		})()
+	(() => {
+		const inputs = document.evaluate(
+			"//div[.//div[text()='24小时成交额']]//input[@placeholder='$0']",
+			document,
+			null,
+			XPathResult.ORDERED_NODE_SNAPSHOT_TYPE,
+			null
+		);
+		if (inputs.snapshotLength >= 13) {
+			const input = inputs.snapshotItem(12);
+			input.focus();
+			const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype,'value').set;
+			nativeSetter.call(input,'50000000');
+			input.dispatchEvent(new Event('input',{bubbles:true}));
+			input.dispatchEvent(new Event('change',{bubbles:true}));
+			input.blur();
+		}
+	})()
 	`, nil),
-		chromedp.Nodes(`//button[.//div[contains(text(),"成交额变化")]]`, &nodes, chromedp.BySearch),
 	)
-
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	// 确保第二个按钮存在
+	// 获取“成交额变化”按钮
+	err = chromedp.Run(ctx,
+		chromedp.Nodes(`//button[.//div[contains(text(),"成交额变化")]]`, &nodes, chromedp.BySearch),
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
 	if len(nodes) < 3 {
 		log.Fatal("没有找到3个成交额变化按钮")
 	}
 
+	// 修改“成交额变化(1小时)”输入框，三个一起处理
 	err = chromedp.Run(ctx,
-		chromedp.WaitVisible(nodes[0].FullXPath()),
-		chromedp.Click(nodes[0].FullXPath()),
-
-		chromedp.Sleep(1*time.Second),
-		chromedp.Evaluate(`
-		(() => {
-			const inputs = document.evaluate(
-				"//div[.//div[text()='成交额变化(1小时)']]//input[@placeholder='-100%']",
-				document,
-				null,
-				XPathResult.ORDERED_NODE_SNAPSHOT_TYPE,
-				null
-			);
-			if (inputs.snapshotLength >= 15) {
-				const input = inputs.snapshotItem(12);
-				input.value = "5";
-				input.dispatchEvent(new Event('input', { bubbles: true }));
-			}
-		})()
-	`, nil),
-
-		chromedp.WaitVisible(nodes[1].FullXPath()),
-		chromedp.Click(nodes[1].FullXPath()),
-
-		chromedp.Sleep(1*time.Second),
+		chromedp.Sleep(500*time.Millisecond),
 		chromedp.Evaluate(`
 	(() => {
 		const inputs = document.evaluate(
@@ -138,54 +121,41 @@ func fetchFilteredCoins() ([]string, error) {
 			XPathResult.ORDERED_NODE_SNAPSHOT_TYPE,
 			null
 		);
-		if (inputs.snapshotLength >= 15) {
-			const input = inputs.snapshotItem(13);
-			input.value = "5";
-			input.dispatchEvent(new Event('input', { bubbles: true }));
-		}
+		const idxArr = [12,13,14];
+		idxArr.forEach(i=>{
+			if(inputs.snapshotLength>i){
+				const input = inputs.snapshotItem(i);
+				input.focus();
+				const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype,'value').set;
+				nativeSetter.call(input,'5');
+				input.dispatchEvent(new Event('input',{bubbles:true}));
+				input.dispatchEvent(new Event('change',{bubbles:true}));
+				input.blur();
+			}
+		});
 	})()
-`, nil),
+	`, nil),
 
-		chromedp.WaitVisible(nodes[2].FullXPath()),
-		chromedp.Click(nodes[2].FullXPath()),
+		chromedp.Sleep(500*time.Millisecond),
 
-		chromedp.Sleep(1*time.Second),
-		chromedp.Evaluate(`
-(() => {
-const inputs = document.evaluate(
-	"//div[.//div[text()='成交额变化(1小时)']]//input[@placeholder='-100%']",
-	document,
-	null,
-	XPathResult.ORDERED_NODE_SNAPSHOT_TYPE,
-	null
-);
-if (inputs.snapshotLength >= 15) {
-	const input = inputs.snapshotItem(14);
-	input.value = "5";
-	input.dispatchEvent(new Event('input', { bubbles: true }));
-}
-})()
-`, nil),
-
-		chromedp.Sleep(2*time.Second),
 		// 点击“应用筛选”
-		chromedp.Click(`//button[contains(text(),"应用筛选")]`, chromedp.BySearch),
+		chromedp.Click(`//button[normalize-space(text())="应用筛选"]`, chromedp.NodeVisible),
 
 		// 等待表格加载
-		chromedp.Sleep(3*time.Second),
+		chromedp.Sleep(2*time.Second),
 		chromedp.WaitVisible(`.ant-table-cell.ant-table-cell-fix-left-last`, chromedp.ByQuery),
 
-		// 提取所有币种
+		// 提取币种
 		chromedp.Evaluate(`
-			(() => {
-				const nodes = document.querySelectorAll('.ant-table-cell.ant-table-cell-fix-left-last .symbol-name');
-				return Array.from(nodes).map(n => n.textContent.trim()).filter(v => v && v !== "币种");
-			})()
-		`, &symbols))
+	(() => {
+		const nodes = document.querySelectorAll('.ant-table-cell.ant-table-cell-fix-left-last .symbol-name');
+		return Array.from(nodes).map(n=>n.textContent.trim()).filter(v=>v && v!=="币种");
+	})()
+	`, &symbols),
+	)
 	if err != nil {
 		log.Fatal(err)
 	}
-
 	if err != nil {
 		return nil, fmt.Errorf("执行失败: %v", err)
 	}
