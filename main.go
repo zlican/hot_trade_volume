@@ -7,6 +7,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/chromedp/cdproto/cdp"
 	"github.com/chromedp/cdproto/network"
 	"github.com/chromedp/chromedp"
 )
@@ -35,6 +36,8 @@ func fetchFilteredCoins() ([]string, error) {
 	defer cancel()
 
 	var symbols []string
+	var nodes []*cdp.Node
+
 	err := chromedp.Run(ctx,
 		network.Enable(),
 		network.SetCookie("obe", "s_ce4eb2cfebfd4e24803c5078e4509ae9").
@@ -52,8 +55,32 @@ func fetchFilteredCoins() ([]string, error) {
 		// 点击“成交额”按钮
 		chromedp.WaitVisible(`//button[span[contains(text(),"成交额")]]`, chromedp.BySearch),
 		chromedp.Click(`//button[span[contains(text(),"成交额")]]`, chromedp.BySearch),
-		//成功
 
+		chromedp.Sleep(2*time.Second),
+
+		// 获取所有“24小时成交额”按钮
+		chromedp.Nodes(`//button[.//div[contains(text(),"24小时成交额")]]`, &nodes, chromedp.BySearch),
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// 确保第二个按钮存在
+	if len(nodes) < 2 {
+		log.Fatal("没有找到第二个“24小时成交额”按钮")
+	}
+
+	// 点击第二个按钮（等待可见）
+	err = chromedp.Run(ctx,
+		chromedp.WaitVisible(nodes[1].FullXPath()),
+		chromedp.Click(nodes[1].FullXPath()),
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// 后面设置成交额筛选等逻辑保持不变
+	err = chromedp.Run(ctx,
 		// 设置1小时成交额变化 >= 5
 		chromedp.Click(`/html/body/div[3]/div[3]/div[2]/div[5]/div/div[2]/div/div[2]/div/div[1]/button/div`),
 		chromedp.SetValue(`/html/body/div[3]/div[3]/div[2]/div[5]/div/div[2]/div/div[2]/div/div[2]/div/div[1]/div[1]/input`, "5"),
@@ -81,6 +108,9 @@ func fetchFilteredCoins() ([]string, error) {
 			})()
 		`, &symbols),
 	)
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	if err != nil {
 		return nil, fmt.Errorf("执行失败: %v", err)
