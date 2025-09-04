@@ -56,7 +56,7 @@ func fetchFilteredCoins() ([]string, error) {
 		chromedp.WaitVisible(`//button[span[contains(text(),"成交额")]]`, chromedp.BySearch),
 		chromedp.Click(`//button[span[contains(text(),"成交额")]]`, chromedp.BySearch),
 
-		chromedp.Sleep(2*time.Second),
+		chromedp.Sleep(1*time.Second),
 
 		// 获取所有“24小时成交额”按钮
 		chromedp.Nodes(`//button[.//div[contains(text(),"24小时成交额")]]`, &nodes, chromedp.BySearch),
@@ -70,17 +70,27 @@ func fetchFilteredCoins() ([]string, error) {
 		log.Fatal("没有找到第二个“24小时成交额”按钮")
 	}
 
-	// 点击第二个按钮（等待可见）
 	err = chromedp.Run(ctx,
 		chromedp.WaitVisible(nodes[1].FullXPath()),
 		chromedp.Click(nodes[1].FullXPath()),
-	)
-	if err != nil {
-		log.Fatal(err)
-	}
 
-	// 后面设置成交额筛选等逻辑保持不变
-	err = chromedp.Run(ctx,
+		chromedp.Sleep(1*time.Second),
+		chromedp.Evaluate(`
+		(() => {
+			const inputs = document.evaluate(
+				"//div[.//div[text()='24小时成交额']]//input[@placeholder='$0']",
+				document,
+				null,
+				XPathResult.ORDERED_NODE_SNAPSHOT_TYPE,
+				null
+			);
+			if (inputs.snapshotLength >= 13) {
+				const input = inputs.snapshotItem(12);
+				input.value = "50000000";
+				input.dispatchEvent(new Event('input', { bubbles: true }));
+			}
+		})()
+	`, nil),
 		// 设置1小时成交额变化 >= 5
 		chromedp.Click(`/html/body/div[3]/div[3]/div[2]/div[5]/div/div[2]/div/div[2]/div/div[1]/button/div`),
 		chromedp.SetValue(`/html/body/div[3]/div[3]/div[2]/div[5]/div/div[2]/div/div[2]/div/div[2]/div/div[1]/div[1]/input`, "5"),
