@@ -167,8 +167,27 @@ func main() {
 	// 启动定时刷新协程
 	go updateSymbols()
 
-	// 提供 HTTP 接口
-	http.HandleFunc("/api/hot_trade_volume", hotTradeVolumeHandler)
+	// 创建 mux
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/hot_trade_volume", hotTradeVolumeHandler)
+
+	// 使用 CORS 中间件
+	handler := corsMiddleware(mux)
+
 	log.Println("HTTP服务启动，监听端口9000")
-	log.Fatal(http.ListenAndServe(":9000", nil))
+	log.Fatal(http.ListenAndServe(":9000", handler))
+}
+func corsMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
 }
