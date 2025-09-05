@@ -56,7 +56,7 @@ func fetchFilteredCoins() ([]string, error) {
 		chromedp.WaitVisible(`//button[span[contains(text(),"成交额")]]`, chromedp.BySearch),
 		chromedp.Click(`//button[span[contains(text(),"成交额")]]`, chromedp.BySearch),
 
-		chromedp.Sleep(500*time.Millisecond),
+		chromedp.Sleep(50*time.Millisecond),
 		chromedp.Nodes(`//button[.//div[contains(text(),"24小时成交额")]]`, &nodes, chromedp.BySearch),
 	)
 	if err != nil {
@@ -69,7 +69,7 @@ func fetchFilteredCoins() ([]string, error) {
 	err = chromedp.Run(ctx,
 		chromedp.WaitVisible(nodes[1].FullXPath()),
 		chromedp.Click(nodes[1].FullXPath()),
-		chromedp.Sleep(500*time.Millisecond),
+		chromedp.Sleep(50*time.Millisecond),
 		chromedp.Evaluate(`(() => {
 			const inputs = document.evaluate(
 				"//div[.//div[text()='24小时成交额']]//input[@placeholder='$0']",
@@ -101,7 +101,7 @@ func fetchFilteredCoins() ([]string, error) {
 	}
 
 	err = chromedp.Run(ctx,
-		chromedp.Sleep(500*time.Millisecond),
+		chromedp.Sleep(50*time.Millisecond),
 		chromedp.Evaluate(`(() => {
 			const inputs = document.evaluate(
 				"//div[.//div[text()='成交额变化(1小时)']]//input[@placeholder='-100%']",
@@ -121,9 +121,16 @@ func fetchFilteredCoins() ([]string, error) {
 			});
 		})()`, nil),
 
-		chromedp.Sleep(500*time.Millisecond),
+		chromedp.Sleep(50*time.Millisecond),
 		chromedp.Click(`//button[normalize-space(text())="应用筛选"]`, chromedp.NodeVisible),
-		chromedp.Sleep(1*time.Second),
+		chromedp.Sleep(50*time.Millisecond),
+
+		chromedp.WaitVisible(`//div[@class="ant-table-column-sorters"][.//span[text()="持仓(1h%)"]]`, chromedp.BySearch),
+		chromedp.Click(`//div[@class="ant-table-column-sorters"][.//span[text()="持仓(1h%)"]]`, chromedp.BySearch),
+		chromedp.Sleep(50*time.Millisecond),
+		chromedp.WaitVisible(`//div[@class="ant-table-column-sorters"][.//span[text()="持仓(1h%)"]]`, chromedp.BySearch),
+		chromedp.Click(`//div[@class="ant-table-column-sorters"][.//span[text()="持仓(1h%)"]]`, chromedp.BySearch),
+		chromedp.Sleep(50*time.Millisecond),
 		chromedp.WaitVisible(`.ant-table-cell.ant-table-cell-fix-left-last`, chromedp.ByQuery),
 		chromedp.Evaluate(`(() => {
 			const nodes = document.querySelectorAll('.ant-table-cell.ant-table-cell-fix-left-last .symbol-name');
@@ -133,7 +140,6 @@ func fetchFilteredCoins() ([]string, error) {
 	if err != nil {
 		return nil, fmt.Errorf("应用筛选或获取币种失败: %v", err)
 	}
-
 	return symbols, nil
 }
 
