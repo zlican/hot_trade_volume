@@ -79,7 +79,7 @@ func fetchFilteredCoins() ([]string, error) {
 				const input = inputs.snapshotItem(12);
 				input.focus();
 				const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype,'value').set;
-				nativeSetter.call(input,'50000000');
+				nativeSetter.call(input,'100000000');
 				input.dispatchEvent(new Event('input',{bubbles:true}));
 				input.dispatchEvent(new Event('change',{bubbles:true}));
 				input.blur();
@@ -140,14 +140,24 @@ func fetchFilteredCoins() ([]string, error) {
 // updateSymbols 定时刷新全局币种列表
 func updateSymbols() {
 	for {
-		newSymbols, err := fetchFilteredCoins()
+		var newSymbols []string // 假设symbol是string类型，具体类型根据实际调整
+		var err error
+		for attempt := 1; attempt <= 3; attempt++ {
+			newSymbols, err = fetchFilteredCoins()
+			if err == nil {
+				mu.Lock()
+				symbols = newSymbols
+				mu.Unlock()
+				log.Printf("刷新币种成功，共 %d 个", len(newSymbols))
+				break // 成功则跳出重试循环
+			}
+			log.Printf("第 %d 次刷新币种失败: %v", attempt, err)
+			if attempt < 3 {
+				time.Sleep(time.Second * time.Duration(attempt*2)) // 每次重试增加等待时间
+			}
+		}
 		if err != nil {
-			log.Printf("刷新币种失败: %v", err)
-		} else {
-			mu.Lock()
-			symbols = newSymbols
-			mu.Unlock()
-			log.Printf("刷新币种成功，共 %d 个", len(newSymbols))
+			log.Printf("刷新币种失败，已重试3次: %v", err)
 		}
 		time.Sleep(5 * time.Minute) // 每5分钟刷新一次
 	}
