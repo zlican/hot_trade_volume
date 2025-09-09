@@ -79,7 +79,7 @@ func fetchFilteredCoins() ([]string, error) {
 				const input = inputs.snapshotItem(12);
 				input.focus();
 				const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype,'value').set;
-				nativeSetter.call(input,'30000000');
+				nativeSetter.call(input,'10000000');
 				input.dispatchEvent(new Event('input',{bubbles:true}));
 				input.dispatchEvent(new Event('change',{bubbles:true}));
 				input.blur();
@@ -130,14 +130,8 @@ func fetchFilteredCoins() ([]string, error) {
 
 		// 点击下拉中的 "100" 选项
 		chromedp.Click(`//ul[@role="listbox"]//li[normalize-space(text())="100"]`, chromedp.NodeVisible),
-		chromedp.Sleep(100*time.Millisecond),
+		chromedp.Sleep(1000*time.Millisecond),
 
-		chromedp.WaitVisible(`//div[@class="ant-table-column-sorters"][.//span[text()="持仓(1h%)"]]`, chromedp.BySearch),
-		chromedp.Click(`//div[@class="ant-table-column-sorters"][.//span[text()="持仓(1h%)"]]`, chromedp.BySearch),
-		chromedp.Sleep(50*time.Millisecond),
-		chromedp.WaitVisible(`//div[@class="ant-table-column-sorters"][.//span[text()="持仓(1h%)"]]`, chromedp.BySearch),
-		chromedp.Click(`//div[@class="ant-table-column-sorters"][.//span[text()="持仓(1h%)"]]`, chromedp.BySearch),
-		chromedp.Sleep(50*time.Millisecond),
 		chromedp.WaitVisible(`.ant-table-cell.ant-table-cell-fix-left-last`, chromedp.ByQuery),
 		chromedp.Evaluate(`(() => {
 			const nodes = document.querySelectorAll('.ant-table-cell.ant-table-cell-fix-left-last .symbol-name');
