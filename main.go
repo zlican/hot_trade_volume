@@ -18,12 +18,13 @@ import (
 const coinglassURL = "https://www.coinglass.com/zh"
 
 var (
-	mu      sync.RWMutex
-	symbols []string
+	mu               sync.RWMutex
+	symbols          []string
+	topGainersSymbol []string
 )
 
 // fetchFilteredCoins 执行筛选并返回币种列表
-func fetchFilteredCoins() ([]string, error) {
+func fetchFilteredCoins() ([]string, []string, error) {
 	opts := append(chromedp.DefaultExecAllocatorOptions[:],
 		chromedp.ProxyServer("http://127.0.0.1:10809"),
 		chromedp.Flag("headless", true),
@@ -60,10 +61,10 @@ func fetchFilteredCoins() ([]string, error) {
 		chromedp.Nodes(`//button[.//div[contains(text(),"24小时成交额")]]`, &nodes, chromedp.BySearch),
 	)
 	if err != nil {
-		return nil, fmt.Errorf("初始页面操作失败: %v", err)
+		return nil, nil, fmt.Errorf("初始页面操作失败: %v", err)
 	}
 	if len(nodes) < 2 {
-		return nil, fmt.Errorf("没有找到第二个“24小时成交额”按钮")
+		return nil, nil, fmt.Errorf("没有找到第二个“24小时成交额”按钮")
 	}
 
 	err = chromedp.Run(ctx,
@@ -87,17 +88,17 @@ func fetchFilteredCoins() ([]string, error) {
 		})()`, nil),
 	)
 	if err != nil {
-		return nil, fmt.Errorf("设置24小时成交额失败: %v", err)
+		return nil, nil, fmt.Errorf("设置24小时成交额失败: %v", err)
 	}
 
 	err = chromedp.Run(ctx,
 		chromedp.Nodes(`//button[.//div[contains(text(),"成交额变化")]]`, &nodes, chromedp.BySearch),
 	)
 	if err != nil {
-		return nil, fmt.Errorf("获取成交额变化按钮失败: %v", err)
+		return nil, nil, fmt.Errorf("获取成交额变化按钮失败: %v", err)
 	}
 	if len(nodes) < 3 {
-		return nil, fmt.Errorf("没有找到3个成交额变化按钮")
+		return nil, nil, fmt.Errorf("没有找到3个成交额变化按钮")
 	}
 
 	err = chromedp.Run(ctx,
@@ -137,25 +138,35 @@ func fetchFilteredCoins() ([]string, error) {
 			const nodes = document.querySelectorAll('.ant-table-cell.ant-table-cell-fix-left-last .symbol-name');
 			return Array.from(nodes).map(n=>n.textContent.trim()).filter(v=>v && v!=="币种");
 		})()`, &symbols),
+
+		// 等待第一个结果块出现，确保 DOM 渲染完成
+		chromedp.WaitVisible(`div.MuiBox-root.cg-style-1a7fd5v`, chromedp.ByQuery),
+		// 抓取所有 symbol-name
+		chromedp.Evaluate(`(() => {
+		const nodes = document.querySelectorAll("div.MuiBox-root.cg-style-1a7fd5v .symbol-name");
+		return Array.from(nodes).map(n => n.textContent.trim()).filter(v => v);
+	})()`, &topGainersSymbol),
 	)
 	if err != nil {
-		return nil, fmt.Errorf("应用筛选或获取币种失败: %v", err)
+		return nil, nil, fmt.Errorf("应用筛选或获取币种失败: %v", err)
 	}
-	return symbols, nil
+	return symbols, topGainersSymbol, nil
 }
 
 // updateSymbols 定时刷新全局币种列表
 func updateSymbols() {
 	for {
 		var newSymbols []string // 假设symbol是string类型，具体类型根据实际调整
+		var newTopGainers []string
 		var err error
 		for attempt := 1; attempt <= 3; attempt++ {
-			newSymbols, err = fetchFilteredCoins()
+			newSymbols, newTopGainers, err = fetchFilteredCoins()
 			if err == nil {
 				mu.Lock()
 				symbols = newSymbols
+				topGainersSymbol = newTopGainers
 				mu.Unlock()
-				log.Printf("刷新币种成功，共 %d 个", len(newSymbols))
+				log.Println("刷新币种成功", len(newSymbols), len(topGainersSymbol))
 				break // 成功则跳出重试循环
 			}
 			log.Printf("第 %d 次刷新币种失败: %v", attempt, err)
@@ -178,6 +189,14 @@ func hotTradeVolumeHandler(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(symbols)
 }
 
+// hotTradeVolumeHandler 返回最新币种列表
+func topGainersHandler(w http.ResponseWriter, r *http.Request) {
+	mu.RLock()
+	defer mu.RUnlock()
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(topGainersSymbol)
+}
+
 func main() {
 	log.Println("启动 CoinGlass 爬取服务...")
 
@@ -187,6 +206,7 @@ func main() {
 	// 创建 mux
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/hot_trade_volume", hotTradeVolumeHandler)
+	mux.HandleFunc("/api/top_gainers", topGainersHandler)
 
 	// 使用 CORS 中间件
 	handler := corsMiddleware(mux)
