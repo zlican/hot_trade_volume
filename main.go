@@ -46,7 +46,7 @@ func fetchFilteredCoins() ([]string, []string, error) {
 
 	err := chromedp.Run(ctx,
 		network.Enable(),
-		network.SetCookie("obe", "s_ce4eb2cfebfd4e24803c5078e4509ae9").WithDomain("www.coinglass.com").WithPath("/"),
+		network.SetCookie("obe", "s_40839a55bdd645a0bcd47ab1d03e2839").WithDomain("www.coinglass.com").WithPath("/"),
 		network.SetCookie("api_grade", "1").WithDomain("www.coinglass.com").WithPath("/"),
 
 		chromedp.Navigate(coinglassURL),
