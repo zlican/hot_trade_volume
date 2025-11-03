@@ -80,7 +80,7 @@ func fetchFilteredCoins() ([]string, []string, error) {
 				const input = inputs.snapshotItem(12);
 				input.focus();
 				const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype,'value').set;
-				nativeSetter.call(input,'70000000');
+				nativeSetter.call(input,'100000000');
 				input.dispatchEvent(new Event('input',{bubbles:true}));
 				input.dispatchEvent(new Event('change',{bubbles:true}));
 				input.blur();
